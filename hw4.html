@@ -1,0 +1,218 @@
+<!--
+ - Program: hw4.html
+ - Authors: Yunyi Ding and Brian Lin
+ - On this homework, we worked together for 40 hours,
+ - Yunyi worked independently for 20 hours,
+ - and Brian worked independently for 20 hours.
+-->
+
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>HW4</title><meta charset="utf-8">
+		<style>
+			body,div { background-color: #eee; font-family: sans; padding: 1em; }
+			.d6{font-size: 300%;}
+		</style>
+	</head>
+	<body>
+		<form action="#">
+			<p><input type="text" id="from" />
+			<select id="fromUnit">
+				<option value="c">Celsius</option>
+				<option value="f">Fahrenheit</option>
+ 				<option value="k">Kelvin</option>
+			</select>
+				=
+			<input type="text" id="to"/>
+			<select id="toUnit">
+				<option value="c">Celsius</option>
+				<option value="f">Fahrenheit</option>
+ 				<option value="k">Kelvin</option>
+			</select></p>
+
+			<p>minInt <input type="text" id="minInt"/>
+			maxInt <input type="text" id="maxInt"/>
+			<button type = "button" id="randInt">Generate randInt</button>
+			<input type ="text" id = "out"/></p>
+
+			How many faces? <input type="text" id="numOfFaces"/>
+			<button type = "button" id="randFace">Roll</button>
+			<input type ="text" id = "outFace"/></p>
+
+			<div id="yatzy">
+				Yatzy Game
+				<button id="restart">Restart</button>
+				<p>
+					Score: <span id="score">_</span> (<span id="diceNum">_</span>
+					dice with <span id="dots">_</span> dots each)
+				</p>
+				<p><span id="rolls">_</span> rolls left</p>
+			</div>
+
+		</form>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/2.1.3/jquery.min.js">
+		</script>
+		<script>
+			$(function() {
+				var realValue; //in C
+				var minInt;
+				var maxInt;
+
+				$("#from, #to").keyup(function(){
+					convert(this.id);
+				});
+
+				$("#toUnit, #fromUnit").change(function(){
+					convert(this.id.substring(0,this.id.length-4));
+				});
+				
+				$("#randInt").click(function(){
+					$("#out").val(randInt($("#minInt").val(),$("#maxInt").val()));
+				});
+
+				$("#randFace").click(function(){
+					$("#outFace").val(createDice($("#numOfFaces").val())());
+				});
+
+				//helper function to convert temperatures
+				var convert = function(id){
+					var opposite; //opposite of id
+					if(id === "from") opposite = "to";
+					else opposite = "from";
+
+					//code will convert "from" to C first
+					if($("#"+id+"Unit").val() === "f")
+						realValue = ($("#"+id).val() - 32) * 5/9;
+					else if($("#"+id+"Unit").val() === "k")
+						realValue = $("#"+id).val() - 273;
+					else realValue = $("#"+id).val() * 1;
+
+					//then convert from C to whatever unit
+					if($("#"+opposite+"Unit").val() === "f")
+						$("#"+opposite).val(realValue * 9/5 + 32);
+					else if($("#"+opposite+"Unit").val() === "k")
+						$("#"+opposite).val(realValue * 1 + 273);
+					else $("#"+opposite).val(realValue);
+
+					if($("#"+id).val().length === 0) $("#"+opposite).val("");
+				};
+
+				// yatzy game
+				//creates 5 dice and puts them in an array
+				for(var i = 0; i < 5; i++){
+					diceArray[i] = new YatzyDice();
+					$("#yatzy").append(diceArray[i].el);
+				}
+				//set amount of rolls left and display score, etc
+				rollsLeft = 5;
+				calculateAndDisplay();
+
+				$("#restart").click(function(){
+					rollsLeft = 10;
+					for(var i = 0; i < 5; i++) diceArray[i].roll();
+					calculateAndDisplay();
+				});
+			});
+
+			var randInt = function (min, max){
+				if(min * 1 <= max * 1)
+					return Math.floor(Math.random() * ((max - min)*1+1) + min * 1);
+				return "Invalid Input";
+			};
+
+			// understand javascript function closure
+			var createDice = function(numFace){
+				var showDice = function(){
+					return randInt(1, numFace);
+				};
+				return showDice;
+			};
+
+			// 6-sided Dice object
+			var Dice = function(){
+				var self = this;
+				this.icons="⚀⚁⚂⚃⚄⚅";
+				this.el = document.createElement("span");
+				this.el.setAttribute("class", "d6");
+				self.roll();
+				$(this.el).click(function(){
+					self.roll();
+				});
+			}
+
+			Dice.prototype.render = function(index){
+				$(this.el).text(this.icons.charAt(index-1));
+			}
+
+			Dice.prototype.roll = function(){
+				var self = this;
+				this.index = createDice(6)();
+				this.render(this.index);
+			}
+
+			var UnfairDice = function(){};
+			UnfairDice.prototype = new Dice();
+			UnfairDice.prototype.roll = function(){
+				Dice.prototype.roll.call(this);
+				if(Math.random()<0.5) index = 6;
+				else index = createDice(5)();
+				this.render(index);
+			}
+
+			//cuz we wanna roll a lot before I'm done setting up
+			var rollsLeft = 999999999;
+			var diceArray = [];
+
+			var YatzyDice = function(){
+				var self = this;
+				this.el = document.createElement("span");
+				this.el.setAttribute("class", "d6");
+				self.roll();
+				$(this.el).click(function(){
+					self.roll();
+			    	calculateAndDisplay();
+				});
+			}
+
+			YatzyDice.prototype = new Dice();
+			YatzyDice.prototype.roll = function() {
+			    if (rollsLeft > 0) {
+			        rollsLeft--;
+			        Dice.prototype.roll.call(this);
+			    }
+			};
+
+			//calculates the score values and displays them and the rolls left
+			var calculateAndDisplay = function(){
+				var score = 0;
+				var diceNum = 0;
+				var maxDots = 0;
+				var diceCount = [-1,0,0,0,0,0,0];
+				for(var i = 0; i < 5; i++) diceCount[diceArray[i].index]++;
+				for(var i = 1; i < 7; i++) if(diceCount[i] >= diceCount[maxDots]) maxDots = i;
+				diceNum = diceCount[maxDots];
+				score = diceCount[maxDots] * maxDots;
+				$("#score").text(score);
+				$("#diceNum").text(diceNum);
+				$("#dots").text(maxDots);
+				$("#rolls").text(rollsLeft);
+			}
+
+			var memoize = function(f){
+				this.funct = f;
+				var inputs = [];
+				var results = [];
+				var newfunct = function(inp){
+					for(var i = 0; i < inputs.length; i++)
+						if(inputs[i] === inp) return results[i];
+					inputs.push(inp);
+					results.push(this.funct(inp));
+					return results[results.length-1];
+				}
+				return newfunct;
+			}
+
+		</script>
+	</body>
+</html>
